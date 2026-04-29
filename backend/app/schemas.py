@@ -14,6 +14,8 @@ class CategoryCreate(BaseModel):
     slug: str
     description: Optional[str] = None
     icon: Optional[str] = None
+    image_url: Optional[str] = None
+    brand_color: Optional[str] = None
     sort_order: int = 0
 
 
@@ -22,6 +24,8 @@ class CategoryUpdate(BaseModel):
     slug: Optional[str] = None
     description: Optional[str] = None
     icon: Optional[str] = None
+    image_url: Optional[str] = None
+    brand_color: Optional[str] = None
     sort_order: Optional[int] = None
 
 

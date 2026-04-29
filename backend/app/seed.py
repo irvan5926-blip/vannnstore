@@ -1,6 +1,8 @@
-"""Seed initial data: admin user, categories, and products from Muhammad's price list."""
+"""Seed initial data: admin user, categories, and products."""
 import os
+from typing import Optional
 
+from sqlalchemy import text
 from sqlmodel import Session, select
 
 from app.auth import hash_password
@@ -9,6 +11,32 @@ from app.models import AdminUser, Category, Product, StoreSettings
 
 DEFAULT_ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 DEFAULT_ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "vannnstore2025")
+DEFAULT_WA = "6289505674504"
+PLACEHOLDER_WA = "6281234567890"
+
+
+# https://cdn.simpleicons.org/<slug>/<color hex without #> — returns SVG.
+# For brands not on simpleicons we use a curated CDN URL or fallback to None
+# (frontend renders a colored letter tile).
+APP_BRAND: dict[str, dict[str, Optional[str]]] = {
+    "capcut-pro":         {"image_url": "/logos/capcut.svg",       "brand_color": "#000000"},
+    "canva-pro":          {"image_url": "/logos/canva.svg",        "brand_color": "#00C4CC"},
+    "vidio-premium":      {"image_url": "/logos/vidio.svg",        "brand_color": "#1B47B8"},
+    "getcontact-premium": {"image_url": "/logos/getcontact.svg",   "brand_color": "#0EBE7F"},
+    "gemini-ai":          {"image_url": "/logos/googlegemini.svg", "brand_color": "#8E75B2"},
+    "netflix-premium":    {"image_url": "/logos/netflix.svg",      "brand_color": "#E50914"},
+    "loklok-vip":         {"image_url": "/logos/loklok.svg",       "brand_color": "#FFB300"},
+    "bstation":           {"image_url": "/logos/bilibili.svg",     "brand_color": "#00A1D6"},
+    "alight-motion":      {"image_url": "/logos/alightmotion.svg", "brand_color": "#FF5F1F"},
+    "youtube-premium":    {"image_url": "/logos/youtube.svg",      "brand_color": "#FF0000"},
+    "amazon-prime":       {"image_url": "/logos/primevideo.svg",   "brand_color": "#00A8E1"},
+    "duolingo":           {"image_url": "/logos/duolingo.svg",     "brand_color": "#58CC02"},
+    "disney-hotstar":     {"image_url": "/logos/disneyplus.svg",   "brand_color": "#113CCF"},
+    "scribd":             {"image_url": "/logos/scribd.svg",       "brand_color": "#1A7BBA"},
+    "blackbox-ai":        {"image_url": "/logos/blackboxai.svg",   "brand_color": "#0F1117"},
+    "gmail-fresh":        {"image_url": "/logos/gmail.svg",        "brand_color": "#EA4335"},
+    "wetv-vip":           {"image_url": "/logos/wetv.svg",         "brand_color": "#FF6500"},
+}
 
 
 CATEGORIES_DATA = [
@@ -190,6 +218,50 @@ CATEGORIES_DATA = [
 ]
 
 
+def _column_exists(conn, table: str, column: str) -> bool:
+    rows = conn.execute(text(f"PRAGMA table_info({table})")).fetchall()
+    return any(r[1] == column for r in rows)
+
+
+def run_migrations() -> None:
+    """Apply ALTER TABLE migrations idempotently for SQLite."""
+    with engine.begin() as conn:
+        # Add image_url + brand_color to category if missing
+        if not _column_exists(conn, "category", "image_url"):
+            conn.execute(text("ALTER TABLE category ADD COLUMN image_url TEXT"))
+        if not _column_exists(conn, "category", "brand_color"):
+            conn.execute(text("ALTER TABLE category ADD COLUMN brand_color TEXT"))
+
+
+def patch_existing_data() -> None:
+    """Update existing rows with new defaults / brand metadata.
+
+    Idempotent — only updates fields where current value is null/placeholder.
+    """
+    with Session(engine) as session:
+        # Update WhatsApp number from placeholder → real number
+        settings = session.get(StoreSettings, 1)
+        if settings and settings.whatsapp_number == PLACEHOLDER_WA:
+            settings.whatsapp_number = DEFAULT_WA
+            session.add(settings)
+
+        # Set image_url + brand_color on existing categories where missing
+        for cat in session.exec(select(Category)).all():
+            brand = APP_BRAND.get(cat.slug)
+            if not brand:
+                continue
+            changed = False
+            if not cat.image_url and brand.get("image_url"):
+                cat.image_url = brand["image_url"]
+                changed = True
+            if not cat.brand_color and brand.get("brand_color"):
+                cat.brand_color = brand["brand_color"]
+                changed = True
+            if changed:
+                session.add(cat)
+        session.commit()
+
+
 def run_seed() -> None:
     with Session(engine) as session:
         # Admin user
@@ -207,17 +279,25 @@ def run_seed() -> None:
         # Store settings
         settings = session.get(StoreSettings, 1)
         if not settings:
-            session.add(StoreSettings(id=1))
+            session.add(
+                StoreSettings(
+                    id=1,
+                    whatsapp_number=DEFAULT_WA,
+                )
+            )
 
         # Categories + products (only seed if categories table is empty)
         existing_count = len(session.exec(select(Category)).all())
         if existing_count == 0:
             for idx, cat_data in enumerate(CATEGORIES_DATA):
+                brand = APP_BRAND.get(cat_data["slug"], {})
                 category = Category(
                     name=cat_data["name"],
                     slug=cat_data["slug"],
                     icon=cat_data["icon"],
                     description=cat_data["description"],
+                    image_url=brand.get("image_url"),
+                    brand_color=brand.get("brand_color"),
                     sort_order=idx,
                 )
                 session.add(category)
@@ -241,5 +321,7 @@ if __name__ == "__main__":
     from app.database import init_db
 
     init_db()
+    run_migrations()
     run_seed()
+    patch_existing_data()
     print(f"Seed selesai. Admin: {DEFAULT_ADMIN_USERNAME} / {DEFAULT_ADMIN_PASSWORD}")
