@@ -10,6 +10,8 @@ class Category(SQLModel, table=True):
     slug: str = Field(index=True, unique=True)
     description: Optional[str] = None
     icon: Optional[str] = None
+    image_url: Optional[str] = None
+    brand_color: Optional[str] = None
     sort_order: int = 0
     created_at: datetime = Field(default_factory=datetime.utcnow)
 

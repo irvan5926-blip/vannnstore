@@ -15,7 +15,7 @@ from app.auth import (
 )
 from app.database import get_session, init_db
 from app.models import AdminUser, Category, Product, StoreSettings
-from app.seed import run_seed
+from app.seed import patch_existing_data, run_migrations, run_seed
 
 app = FastAPI(title="VannnStore API", version="1.0.0")
 
@@ -31,7 +31,9 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup() -> None:
     init_db()
+    run_migrations()
     run_seed()
+    patch_existing_data()
 
 
 @app.get("/healthz")
@@ -98,6 +100,8 @@ def storefront(session: Session = Depends(get_session)):
                 "name": cat.name,
                 "slug": cat.slug,
                 "icon": cat.icon,
+                "image_url": cat.image_url,
+                "brand_color": cat.brand_color,
                 "description": cat.description,
                 "products": [
                     {

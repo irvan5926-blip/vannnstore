@@ -546,6 +546,8 @@ function CategoryFormModal({
     slug: category?.slug ?? "",
     icon: category?.icon ?? "✨",
     description: category?.description ?? "",
+    image_url: category?.image_url ?? "",
+    brand_color: category?.brand_color ?? "",
     sort_order: category?.sort_order ?? 0,
   });
   const [saving, setSaving] = useState(false);
@@ -624,6 +626,24 @@ function CategoryFormModal({
             onChange={(e) => setForm({ ...form, description: e.target.value })}
           />
         </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="URL Logo (opsional)">
+            <input
+              className="input"
+              placeholder="/logos/canva.svg atau https://..."
+              value={form.image_url}
+              onChange={(e) => setForm({ ...form, image_url: e.target.value })}
+            />
+          </Field>
+          <Field label="Warna Brand (hex)">
+            <input
+              className="input"
+              placeholder="#00C4CC"
+              value={form.brand_color}
+              onChange={(e) => setForm({ ...form, brand_color: e.target.value })}
+            />
+          </Field>
+        </div>
         <Field label="Urutan">
           <input
             className="input"

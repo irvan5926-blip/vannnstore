@@ -60,6 +60,8 @@ export type StorefrontCategory = {
   name: string;
   slug: string;
   icon: string | null;
+  image_url: string | null;
+  brand_color: string | null;
   description: string | null;
   products: StorefrontProduct[];
 };
@@ -129,6 +131,8 @@ export type Category = {
   slug: string;
   description: string | null;
   icon: string | null;
+  image_url: string | null;
+  brand_color: string | null;
   sort_order: number;
 };
 
